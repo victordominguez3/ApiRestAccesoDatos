@@ -1,0 +1,43 @@
+version: '3.7'
+services:
+  mongo:
+    image: mongo:6.0.13-jammy
+    restart: always
+    ports:
+      - 27017:27017
+    volumes:
+      - ./data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_DATABASE: mongodb
+    networks:
+      - my_network
+  maria:
+    image: mariadb:lts-jammy
+    restart: always
+    ports:
+      - 3306:3306
+    #volumes:
+    #  - ./datamaria:/var/lib/mysql
+    environment:
+      MARIADB_ROOT_PASSWORD: example
+      MARIADB_DATABASE: mariadb
+    networks:
+      - my_network
+  api:
+    build:
+      context: api/.
+      dockerfile: dockerfile
+    restart: on-failure
+    ports:
+      - 5000:5000
+    environment:
+      - PORT=5000
+    depends_on:
+      - mongo
+      - maria
+    networks:
+      - my_network
+networks:
+  my_network:

@@ -1,0 +1,31 @@
+# Use the official Python base image
+FROM python:alpine3.19
+
+RUN apk add --no-cache mariadb-connector-c-dev gcc musl-dev
+
+# Set the workking directory in the container
+WORKDIR /usr/src/app
+
+# Copy the requirements file into the container
+COPY requirements.txt .
+
+# Install the Python dependencies
+RUN pip install --upgrade pip
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+# RUN pip install --no-cache-dir 'flask[async]'
+
+# Copy the application code into the container
+COPY src ./src
+
+COPY process.env ./src/.env
+
+# Set environment variables for Mongo
+ENV PYTHONPATH "/usr/src/app/src:${PYTHONPATH}"
+
+# Expose the port on which the application will run. This is my api port
+EXPOSE 5000
+
+# Run the application
+CMD [ "flask", "--app=app.py", "run", "--host=0.0.0.0" ]
