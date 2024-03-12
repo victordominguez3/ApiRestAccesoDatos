@@ -7,7 +7,6 @@ from src.repositories.tarea_repo_mongo import TareaRepoMongo
 from src.repositories.tarea_repo_maria import TareaRepoMaria
 from src.models.tarea import Tarea
 from pymongo.errors import PyMongoError
-from datetime import datetime
 from mariadb import mariadb
 
 app = Flask(__name__)
@@ -70,9 +69,8 @@ def put_usuario(email):
         if usuario is None: return jsonify({"Mensaje": "Usuario no autentificado"})
         if not usuario_repo.is_verified(email): return jsonify({"Mensaje": "Usuario no verificado"})
         body = request.get_json()
-        if "email" in body and usuario_repo.email_existe(body["email"]): return jsonify({"Mensaje: Ya existe un usuario con el mismo email"})
         newUsuario = Usuario(
-            body["email"] if "email" in body else usuario.email,
+            usuario.email,
             body["password"] if "password" in body else usuario.password,
             body["name"] if "name" in body else usuario.name,
             usuario.isVerified,
@@ -89,7 +87,6 @@ def delete_usuario(email):
         password = request.args.get("password")
         usuario = usuario_repo.get_usuario(email, password)
         if usuario is None: return jsonify({"Mensaje": "Usuario no autentificado"})
-        if not usuario_repo.email_existe(email): return jsonify({"Mensaje": "No existe un usuario con el email proporcionado"})
         if not usuario_repo.is_verified(email): return jsonify({"Mensaje": "Usuario no verificado"})
         if not usuario_repo.delete_usuario(email, password): return jsonify({"Mensaje": "No se pudo completar el borrado del usuario"})
         if env["ACTUAL_DB"] == "mongo": tarea_repo.delete_all_tareas(email)

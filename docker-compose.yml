@@ -39,5 +39,19 @@ services:
       - maria
     networks:
       - my_network
+  api_graphql:
+    build:
+      context: ./api/
+      dockerfile: dockerfile_graphql
+    restart: on-failure
+    ports:
+      - 5001:5001
+    environment:
+      - PORT=5001
+    depends_on:
+      - mongo
+      - maria
+    networks:
+      - my_network
 networks:
   my_network:
