@@ -1,12 +1,14 @@
 from flask import Flask, jsonify, request, abort
 from dotenv import dotenv_values
 from src.repositories.usuario_repo_mongo import UsuarioRepoMongo
+from src.repositories.usuario_repo_maria import UsuarioRepoMaria
 from src.models.usuario import Usuario
 from src.repositories.tarea_repo_mongo import TareaRepoMongo
 from src.repositories.tarea_repo_maria import TareaRepoMaria
 from src.models.tarea import Tarea
 from pymongo.errors import PyMongoError
 from datetime import datetime
+from mariadb import mariadb
 
 app = Flask(__name__)
 app.config["JSONIFY_PRETTYPRINT_REGULAR"] = True
@@ -14,11 +16,23 @@ app.config["JSONIFY_PRETTYPRINT_REGULAR"] = True
 env = dotenv_values()
 
 if env["ACTUAL_DB"] == "maria":
-    tarea_repo = TareaRepoMaria("tareas", env["DB_USER"], env["DB_PASSWORD"])
+
+    try:
+        connection = mariadb.connect(
+            host="maria",
+            port=3306,
+            password=env["DB_PASSWORD"],
+            database="mariadb"
+        )
+        print("Connected to MariaDB!")
+    except mariadb.Error as e: print(e)
+
+    usuario_repo = UsuarioRepoMaria(connection, "usuarios")
+    tarea_repo = TareaRepoMaria(connection, "tareas")
+
 if env["ACTUAL_DB"] == "mongo":
     tarea_repo = TareaRepoMongo("tareas", env["DB_USER"], env["DB_PASSWORD"])
-
-usuario_repo = UsuarioRepoMongo("usuarios", env["DB_USER"], env["DB_PASSWORD"])
+    usuario_repo = UsuarioRepoMongo("usuarios", env["DB_USER"], env["DB_PASSWORD"])
 
 # @app.route('/ping', methods=['GET'])
 # def index():
@@ -31,7 +45,7 @@ def get_usuario(email):
         password = request.args.get("password")
         usuario = usuario_repo.get_usuario(email, password)
         if usuario is not None: return jsonify(usuario.__dict__)
-        return jsonify({"Mensaje": "No pudo completarse el get del usuario"})
+        return jsonify({"Mensaje": "No existe el usuario"})
     except PyMongoError as e:
         return jsonify({"Error": str(e)})
     
@@ -39,7 +53,7 @@ def get_usuario(email):
 def post_usuario():
     try:
         body = request.get_json()
-        if not all(key in body for key in ["email", "password", "name"]): return jsonify({"Mensaje": "Faltan campos"})
+        if not all(key in body for key in ["email", "password", "name"]): return jsonify({"Mensaje": "Faltan campos (email, password, name)"})
         if usuario_repo.email_existe(body["email"]): return jsonify({"Mensaje": "Ya existe un usuario con el mismo email"})
         usuario = Usuario(body["email"], body["password"], body["name"])
         result = usuario_repo.save_usuario(usuario, usuario.password)
@@ -77,8 +91,9 @@ def delete_usuario(email):
         if usuario is None: return jsonify({"Mensaje": "Usuario no autentificado"})
         if not usuario_repo.email_existe(email): return jsonify({"Mensaje": "No existe un usuario con el email proporcionado"})
         if not usuario_repo.is_verified(email): return jsonify({"Mensaje": "Usuario no verificado"})
-        usuario_repo.delete_usuario(email, password)
-        return jsonify({"Mensaje": "Usuario eliminado con éxito"})
+        if not usuario_repo.delete_usuario(email, password): return jsonify({"Mensaje": "No se pudo completar el borrado del usuario"})
+        if env["ACTUAL_DB"] == "mongo": tarea_repo.delete_all_tareas(email)
+        return jsonify({"Mensaje": "Usuario y tareas vinculadas eliminados con éxito"})
     except PyMongoError as e:
         return jsonify({"Error": str(e)})
     
@@ -109,7 +124,7 @@ def get_tareas(email):
         if usuario is None: return jsonify({"Mensaje": "Usuario no autentificado"})
         if not usuario_repo.is_verified(email): return jsonify({"Mensaje": "Usuario no verificado"})
         tareas = tarea_repo.get_tareas(email)
-        if tareas == []: return jsonify({"Mensaje": "No hay tareas para este usuario"})
+        if tareas == [] or tareas is None: return jsonify({"Mensaje": "No hay tareas para este usuario"})
         tareas_dict = [tarea.__dict__ for tarea in tareas]
         return jsonify(tareas_dict)
         return jsonify({"Mensaje": "No pudo completarse el get de las tareas"})
@@ -138,7 +153,7 @@ def post_tarea(email):
         if usuario is None: return jsonify({"Mensaje": "Usuario no autentificado"})
         if not usuario_repo.is_verified(email): return jsonify({"Mensaje": "Usuario no verificado"})
         body = request.get_json()
-        if not all(key in body for key in ["title", "text", "checked", "important", "priority"]): return jsonify({"Mensaje": "Faltan campos"})
+        if not all(key in body for key in ["title", "text", "checked", "important", "priority"]): return jsonify({"Mensaje": "Faltan campos (title, text, checked, important, priority)"})
         tarea = Tarea(
             email,
             body["title"],
@@ -184,8 +199,8 @@ def delete_tarea(email, id):
         usuario = usuario_repo.get_usuario(email, password)
         if usuario is None: return jsonify({"Mensaje": "Usuario no autentificado"})
         if not usuario_repo.is_verified(email): return jsonify({"Mensaje": "Usuario no verificado"})
-        if not tarea_repo.tarea_existe(email, id): return jsonify({"Mensaje": "No existe una tarea con el id proporcionado"})
-        tarea_repo.delete_tarea(email, id)
+        if tarea_repo.get_tarea_by_id(email, id) is None: return jsonify({"Mensaje": "No existe una tarea con el id proporcionado"})
+        if not tarea_repo.delete_tarea(email, id): return jsonify({"Mensaje": "No se pudo completar el borrado de la tarea"})
         return jsonify({"Mensaje": "Tarea eliminada con éxito"})
     except PyMongoError as e:
         return jsonify({"Error": str(e)})
@@ -197,7 +212,9 @@ def delete_all_tareas(email):
         usuario = usuario_repo.get_usuario(email, password)
         if usuario is None: return jsonify({"Mensaje": "Usuario no autentificado"})
         if not usuario_repo.is_verified(email): return jsonify({"Mensaje": "Usuario no verificado"})
-        tarea_repo.delete_all_tareas(email)
+        tareas = tarea_repo.get_tareas(email)
+        if tareas == [] or tareas is None: return jsonify({"Mensaje": "No hay tareas para este usuario"})
+        if not tarea_repo.delete_all_tareas(email): return jsonify({"Mensaje": "No se pudo completar el borrado de las tareas"})
         return jsonify({"Mensaje": "Todas las tareas eliminadas con éxito"})
     except PyMongoError as e:
         return jsonify({"Error": str(e)})

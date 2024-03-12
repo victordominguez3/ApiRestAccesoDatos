@@ -55,15 +55,16 @@ class TareaRepoMongo():
         if result.matched_count > 0 or result.upserted_id: return tarea
         return None
         
-    def delete_tarea(self, email: str, id_tarea: str):
+    def delete_tarea(self, email: str, id_tarea: str) -> bool:
         self.coleccion_tarea.delete_one({"email":email, "id":id_tarea})
+        result = self.get_tarea_by_id(email, id_tarea)
+        if result is None: return True
+        return False
 
-    def delete_all_tareas(self, email: str):
+    def delete_all_tareas(self, email: str) -> bool:
         self.coleccion_tarea.delete_many({"email":email})
-
-    def tarea_existe(self, email: str, id_tarea: str) -> bool:
-        cursor = self.coleccion_tarea.find_one({"email": email, "id": id_tarea})
-        if cursor is not None: return True
+        result = self.get_tareas(email)
+        if result is None or result == []: return True
         return False
     
     def filter(self, lista: List[Tarea], code: str) -> List[Tarea]:

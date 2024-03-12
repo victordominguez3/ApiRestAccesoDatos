@@ -31,8 +31,11 @@ class UsuarioRepoMongo():
         if result.matched_count > 0 or result.upserted_id: return usuario
         return None
     
-    def delete_usuario(self, email: str, password: str):
-        self.coleccion_usuario.delete_one({"email":email, "password":password})
+    def delete_usuario(self, email: str, password: str) -> bool:
+        self.coleccion_usuario.delete_one({"email": email, "password": password})
+        result = self.get_usuario(email, password)
+        if result is None: return True
+        return False
 
     def email_existe(self, email: str) -> bool:
         cursor = self.coleccion_usuario.find_one({"email": email})

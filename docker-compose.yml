@@ -18,8 +18,8 @@ services:
     restart: always
     ports:
       - 3306:3306
-    #volumes:
-    #  - ./datamaria:/var/lib/mysql
+    volumes:
+      - ./datamaria:/var/lib/mysql
     environment:
       MARIADB_ROOT_PASSWORD: example
       MARIADB_DATABASE: mariadb
