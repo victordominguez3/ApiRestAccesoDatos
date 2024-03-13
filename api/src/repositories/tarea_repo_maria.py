@@ -70,14 +70,14 @@ class TareaRepoMaria():
         return None
 
     def delete_tarea(self, email: str, id_tarea: uuid) -> bool:
-        self.connection.execute(f"DELETE FROM {self.tabla} WHERE EMAIL = '{email}' AND ID = '{id_tarea}'")
+        self.cursor.execute(f"DELETE FROM {self.tabla} WHERE EMAIL = '{email}' AND ID = '{id_tarea}'")
         self.connection.commit()
         result = self.get_tarea_by_id(email, id_tarea)
         if result is None: return True
         return False
     
     def delete_all_tareas(self, email: str) -> bool:
-        self.connection.execute(f"DELETE FROM {self.tabla} WHERE EMAIL = '{email}'")
+        self.cursor.execute(f"DELETE FROM {self.tabla} WHERE EMAIL = '{email}'")
         self.connection.commit()
         result = self.get_tareas(email)
         if result == []: return True

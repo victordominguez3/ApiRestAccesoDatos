@@ -5,4 +5,4 @@ class UsuarioType(ObjectType):
     password = String()
     name = String()
     is_verified = Boolean()
-    verification_code = UUID()
+    verification_code = String()

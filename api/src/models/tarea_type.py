@@ -1,7 +1,7 @@
 from graphene import ObjectType, String, Boolean, UUID, DateTime, Int
 
 class TareaType(ObjectType):
-    id = UUID()
+    id = String()
     email = String()
     title = String()
     text = String()

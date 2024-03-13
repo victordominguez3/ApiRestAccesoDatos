@@ -15,7 +15,6 @@ app.config["JSONIFY_PRETTYPRINT_REGULAR"] = True
 env = dotenv_values()
 
 if env["ACTUAL_DB"] == "maria":
-
     try:
         connection = mariadb.connect(
             host="maria",
